@@ -8,11 +8,11 @@ import * as THREE from "three";
 export const DIFFICULTY_LABELS = { kids: "幼兒", child: "兒童", easy: "入門", normal: "標準", hard: "職業" };
 // guards=巡邏兵數;fov=光錐半角(rad);range=光錐長;speed=巡邏速度;window=信號綠區寬
 export const DIFFICULTY_PRESETS = {
-  kids:   { guards: 1, fov: 0.38, range: 5.5, speed: 1.1, window: 0.24 },
-  child:  { guards: 2, fov: 0.42, range: 6.5, speed: 1.4, window: 0.2 },
-  easy:   { guards: 3, fov: 0.46, range: 7.5, speed: 1.7, window: 0.16 },
-  normal: { guards: 4, fov: 0.5,  range: 8.5, speed: 2.0, window: 0.12 },
-  hard:   { guards: 5, fov: 0.55, range: 9.5, speed: 2.4, window: 0.09 },
+  kids:   { guards: 1, fov: 0.30, range: 4.0, speed: 0.9, window: 0.26 },
+  child:  { guards: 2, fov: 0.34, range: 5.0, speed: 1.2, window: 0.22 },
+  easy:   { guards: 3, fov: 0.38, range: 5.5, speed: 1.5, window: 0.18 },
+  normal: { guards: 4, fov: 0.44, range: 6.5, speed: 1.8, window: 0.13 },
+  hard:   { guards: 5, fov: 0.50, range: 8.0, speed: 2.2, window: 0.10 },
 };
 export const GAME_MODES = { solo: { id: "solo", label: "殺令之夜" } };
 
@@ -225,7 +225,7 @@ export class DanielGame {
     this.boss.visible = false;
     this.scene.add(this.boss);
     this._bossActive = false;
-    this._bossTimer = rand(16, 26);
+    this._bossTimer = rand(26, 40); // 07-19 調軟:更晚才第一次出現
     this._bossT = 0;
     // 就位點紅圈
     this.goalRing = new THREE.Mesh(
@@ -265,7 +265,7 @@ export class DanielGame {
     this.checkpoint = { x: 0, z: START_Z };
     this.routMen.visible = false;
     this._bossGone();
-    this._bossTimer = rand(16, 26);
+    this._bossTimer = rand(26, 40);
     this._setupLeg();
     this.phase = "sneak";
     this.message = "殺令已出——避開獵手火把的光,柱影間摸到紅圈!";
@@ -311,7 +311,7 @@ export class DanielGame {
   _bossGone() {
     this._bossActive = false;
     this.boss.visible = false;
-    this._bossTimer = rand(20, 34);
+    this._bossTimer = rand(30, 45);
   }
 
   _startSignals() {
@@ -399,10 +399,11 @@ export class DanielGame {
     const p = this.preset;
     if (this.phase === "sneak") {
       // 玩家移動(鏡頭固定朝 -z,不需鏡像)
-      const spd = 4.2;
+      const spd = 4.8; // 07-19 調軟:玩家加速,更好穿越掃描
       this.playerX = clamp(this.playerX + this.move.x * spd * dt, -FIELD_HALF_W, FIELD_HALF_W);
       this.playerZ = clamp(this.playerZ + this.move.z * spd * dt, CAMP_Z + 1.2, START_Z + 2);
-      // 巡邏兵走路+偵測
+      // 巡邏兵走路+偵測(0.35s 寬限:掃到不秒抓,持續照到才算——07-19 調軟)
+      let spotted = false;
       for (let i = 0; i < p.guards; i += 1) {
         const gd = this.guards[i];
         const wp = gd.wp[gd.wpIdx];
@@ -422,8 +423,14 @@ export class DanielGame {
           let diff = ang - gd.dir;
           while (diff > Math.PI) diff -= Math.PI * 2;
           while (diff < -Math.PI) diff += Math.PI * 2;
-          if (Math.abs(diff) < p.fov) this._caught();
+          if (Math.abs(diff) < p.fov) spotted = true;
         }
+      }
+      if (spotted) {
+        this._exposeT = (this._exposeT || 0) + dt;
+        if (this._exposeT > 0.35) { this._exposeT = 0; this._caught(); }
+      } else {
+        this._exposeT = Math.max(0, (this._exposeT || 0) - dt * 2);
       }
       // 護衛長 BOSS:突然出現直追(照 2D 王宮之夜;幼兒檔不出現、兒童檔短而慢;被抓=同溫柔規則)
       if (this.difficulty !== "kids") {
@@ -431,7 +438,7 @@ export class DanielGame {
           this._bossTimer -= dt;
           if (this._bossTimer <= 0) {
             this._bossActive = true;
-            this._bossT = this.difficulty === "child" ? 4.5 : 7;
+            this._bossT = { child: 4, easy: 5, normal: 6.5, hard: 7.5 }[this.difficulty] || 5;
             this.boss.visible = true;
             const side = Math.random() < 0.5 ? -1 : 1;
             this.boss.position.set(side * (FIELD_HALF_W - 1), 0, clamp(this.playerZ - 14, CAMP_Z + 2, START_Z));
@@ -441,7 +448,7 @@ export class DanielGame {
             this._pushHud();
           }
         } else {
-          const bs = this.difficulty === "child" ? 3.0 : 4.6; // 玩家 4.2:兒童檔追不上,標準以上略快=要會躲
+          const bs = { child: 2.6, easy: 3.6, normal: 4.4, hard: 5.0 }[this.difficulty] || 3.6; // 玩家 4.8:easy 以下追不上,normal 以上要躲柱影
           const bdx = this.playerX - this.boss.position.x, bdz = this.playerZ - this.boss.position.z;
           const bd = Math.hypot(bdx, bdz);
           if (bd > 0.001) {
