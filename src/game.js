@@ -220,6 +220,13 @@ export class DanielGame {
       this.scene.add(cone);
       this.guards.push({ fig, cone, x: 0, z: 0, dir: 0, wp: [], wpIdx: 0 });
     }
+    // 護衛長 BOSS(突然出現的大獵手,照 2D 王宮之夜;分級:幼兒不出現/兒童短而慢)
+    this.boss = this._makeFigure(0x181022, { torch: true, scale: 1.55 });
+    this.boss.visible = false;
+    this.scene.add(this.boss);
+    this._bossActive = false;
+    this._bossTimer = rand(16, 26);
+    this._bossT = 0;
     // 就位點紅圈
     this.goalRing = new THREE.Mesh(
       new THREE.RingGeometry(0.85, 1.1, 24),
@@ -257,6 +264,8 @@ export class DanielGame {
     this.playerZ = START_Z;
     this.checkpoint = { x: 0, z: START_Z };
     this.routMen.visible = false;
+    this._bossGone();
+    this._bossTimer = rand(16, 26);
     this._setupLeg();
     this.phase = "sneak";
     this.message = "殺令已出——避開獵手火把的光,柱影間摸到紅圈!";
@@ -299,7 +308,14 @@ export class DanielGame {
   }
 
   // ── 信號段 ──
+  _bossGone() {
+    this._bossActive = false;
+    this.boss.visible = false;
+    this._bossTimer = rand(20, 34);
+  }
+
   _startSignals() {
+    this._bossGone();
     this.phase = "signal";
     this.signalIdx = 0;
     this.signalHits = 0;
@@ -407,6 +423,39 @@ export class DanielGame {
           while (diff > Math.PI) diff -= Math.PI * 2;
           while (diff < -Math.PI) diff += Math.PI * 2;
           if (Math.abs(diff) < p.fov) this._caught();
+        }
+      }
+      // 護衛長 BOSS:突然出現直追(照 2D 王宮之夜;幼兒檔不出現、兒童檔短而慢;被抓=同溫柔規則)
+      if (this.difficulty !== "kids") {
+        if (!this._bossActive) {
+          this._bossTimer -= dt;
+          if (this._bossTimer <= 0) {
+            this._bossActive = true;
+            this._bossT = this.difficulty === "child" ? 4.5 : 7;
+            this.boss.visible = true;
+            const side = Math.random() < 0.5 ? -1 : 1;
+            this.boss.position.set(side * (FIELD_HALF_W - 1), 0, clamp(this.playerZ - 14, CAMP_Z + 2, START_Z));
+            this.cameraShake = 0.35;
+            this.emit("boss", {});
+            this.message = "護衛長來了!快跑、躲進帷幔柱影!";
+            this._pushHud();
+          }
+        } else {
+          const bs = this.difficulty === "child" ? 3.0 : 4.6; // 玩家 4.2:兒童檔追不上,標準以上略快=要會躲
+          const bdx = this.playerX - this.boss.position.x, bdz = this.playerZ - this.boss.position.z;
+          const bd = Math.hypot(bdx, bdz);
+          if (bd > 0.001) {
+            this.boss.position.x += (bdx / bd) * bs * dt;
+            this.boss.position.z += (bdz / bd) * bs * dt;
+            this.boss.rotation.y = Math.atan2(bdx, bdz);
+          }
+          if (bd < 1.15) {
+            this._bossGone();
+            this._caught();
+          } else {
+            this._bossT -= dt;
+            if (this._bossT <= 0) this._bossGone();
+          }
         }
       }
       // 檢查點:碰到岩石附近就更新
@@ -522,6 +571,14 @@ export class DanielGame {
       gd.cone.geometry = new THREE.CircleGeometry(p.range, 24, Math.PI / 2 - p.fov, p.fov * 2);
       gd.cone.position.set(gd.x, 0.05, gd.z);
       gd.cone.rotation.z = -gd.dir; // 錐面朝行進方向(rotation.x=-π/2 之後 z 軸掌方位)
+    }
+    // 護衛長追擊擺臂
+    if (this._bossActive) {
+      const bsw = Math.sin(t * 11) * 0.7;
+      this.boss.userData.armL.rotation.x = bsw;
+      this.boss.userData.armR.rotation.x = -1.2; // 舉火把追
+      this.boss.userData.legL.rotation.x = bsw * 0.6;
+      this.boss.userData.legR.rotation.x = -bsw * 0.6;
     }
     // 就位點呼吸
     if (this.goalRing.visible) {

@@ -65,6 +65,11 @@ game.onEvent = (event) => {
       flash("被發現了!", 1000);
       pushCommentary("火把照到你了……退回藏身點,貼著帷幔柱影走!", "cool", "被發現了,退回藏身點!");
       break;
+    case "boss":
+      audio.buzz();
+      flash("護衛長來了!", 1400);
+      pushCommentary("護衛長突然出現,直朝你追來——快跑、躲進帷幔柱影!", "cool", "護衛長來了,快躲起來!");
+      break;
     case "leg":
       audio.uiTap();
       pushCommentary(`好位置!前進到第 ${event.n} 個紅圈。`, "hot", "好位置,繼續前進!");
