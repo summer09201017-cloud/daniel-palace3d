@@ -91,7 +91,7 @@
       // play-stats 三層匿名計數(lobby-play-rank §3/§4):開啟 10 分去重;-start/-done 不去重;-done 帶 t=秒。零個資。
       window.psPing = function (key, t) {
         try {
-          if (!location.hostname.endsWith('netlify.app')) return;
+          if (['localhost', '127.0.0.1'].includes(location.hostname)) return;
           var u = 'https://hfpc-play-stats.summer09201017.workers.dev/api/ping?g=' + key + (t ? '&t=' + t : '');
           if (navigator.sendBeacon) navigator.sendBeacon(u); else fetch(u, { mode: 'no-cors' });
         } catch (_) {}
