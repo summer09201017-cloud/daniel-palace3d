@@ -101,6 +101,10 @@ game.onEvent = (event) => {
       pushCommentary(event.text, "info", "");
       break;
     case "match-end":
+      try { if (!['localhost','127.0.0.1'].includes(location.hostname)) {   // -done:玩完一局(t=本局秒數,/stats 使用次數與平均停留吃這個)
+        var __dt = Math.round((Date.now() - (window.__matchT0 || Date.now())) / 1000);
+        navigator.sendBeacon?.('https://hfpc-play-stats.summer09201017.workers.dev/api/ping?g=daniel-palace3d-done&t=' + __dt);
+      } } catch (_) {}
       window.psPing?.("daniel-palace3d-done", window.__psT0 ? Math.round((Date.now() - window.__psT0) / 1000) : 0);
       audio.cheer(); audio.crowdCheer(1);
       ui.matchOverlay.classList.add("visible");
@@ -232,6 +236,7 @@ ui.difficultySelect.addEventListener("change", (e) => { selectedDifficulty = e.t
 ui.framesSelect.addEventListener("change", (e) => { selectedLegs = Number(e.target.value); persist(); });
 
 ui.startMatchButton.addEventListener("click", () => {
+  window.__matchT0 = Date.now();   // -done beacon 用:本局開始時間
   audio.unlock(); audio.uiTap();
   window.psPing?.("daniel-palace3d-start"); window.__psT0 = Date.now();
   persist();
