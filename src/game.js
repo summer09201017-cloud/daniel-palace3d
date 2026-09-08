@@ -153,18 +153,31 @@ export class DanielGame {
     skirt.position.y = 0.86;
     const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.14, 8), skin);
     neck.position.y = 1.66;
+    neck.userData.neck = true;
     const head = new THREE.Group();
     const skull = new THREE.Mesh(new THREE.SphereGeometry(0.21, 14, 14), skin);
-    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.225, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.45), new THREE.MeshStandardMaterial({ color: 0x2b2119, roughness: 0.85 }));
+    // 0908 人物頭頸鐵則(skill: figure-head-neck-rules):
+    // ★ 這頂頭髮 thetaLength 0.45π = 81°,連直角都不到,只蓋住頭頂;加上 rotation.x=-0.2 往後戴,
+    //   後緣也才到 92.5° ⇒ 從後面看,後腦杓往下整片是光的膚色(全艦隊人物體檢紅燈)。
+    //   髮色也從 0x2b2119(接近黑)提亮到 0x3a2a1d,不然層次看不出來。
+    const hairMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1d, roughness: 0.88 });
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.225, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.45), hairMat);
     hair.position.y = 0.02;
     hair.rotation.x = -0.2;
+    // 後腦片:只包正後方 ±72°,兩側留空 ⇒ 不蓋耳(臉部鐵則「眼耳嘴眉齊」)
+    const hairBack = new THREE.Mesh(
+      new THREE.SphereGeometry(0.223, 16, 8, Math.PI * 1.5 - 1.266, 2.532, Math.PI / 2 - 0.06, 0.56),
+      hairMat,
+    );
+    hairBack.position.y = 0.02;
+    hairBack.userData.napeGuard = true;
     const eL = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), white);
     eL.position.set(-0.075, 0.04, 0.175);
     const eR = eL.clone(); eR.position.x = 0.075;
     const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.011, 6, 10, Math.PI), dark);
     mouth.position.set(0, -0.08, 0.165);
     mouth.rotation.z = Math.PI;
-    head.add(skull, hair, eL, eR, mouth);
+    head.add(skull, hair, hairBack, eL, eR, mouth);
     head.position.y = 1.9;
     const mkLeg = (sx) => {
       const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.62, 4, 8), new THREE.MeshStandardMaterial({ color: 0x3a3226, roughness: 0.9 }));
